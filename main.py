@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from explorer.analyzer import PythonAnalyzer
+from explorer.architecture import ArchitectureDetector
 from explorer.browser import BrowserController
 from explorer.github import normalize_repository
 from explorer.navigator import GitHubNavigator
@@ -28,12 +29,20 @@ async def run(repository_input: str):
         analyzer = PythonAnalyzer()
         analysis = analyzer.analyze_files(contents)
 
+        detector = ArchitectureDetector()
+        architecture = detector.detect(tree.files, analysis)
+
         save_report(repository_url, tree, analysis)
 
         Path("reports").mkdir(exist_ok=True)
 
         Path("reports/file-contents.json").write_text(
             json.dumps(contents, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+        Path("reports/architecture.json").write_text(
+            json.dumps(architecture, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
 
@@ -46,6 +55,7 @@ async def run(repository_input: str):
         print(f"Important files found: {len(tree.files)}")
         print(f"Files read: {len(contents)}")
         print(f"Python files analyzed: {len(analysis)}")
+        print(f"Technologies detected: {', '.join(architecture['technologies'])}")
         print("Report: reports/code-analysis.json")
 
     finally:
