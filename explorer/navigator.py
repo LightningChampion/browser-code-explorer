@@ -2,7 +2,8 @@ import asyncio
 from dataclasses import dataclass, field
 from urllib.parse import urljoin
 
-from playwright.async_api import Page, Error as PlaywrightError
+from playwright.async_api import Error as PlaywrightError
+from playwright.async_api import Page
 
 from explorer.config import settings
 
@@ -41,6 +42,7 @@ class GitHubNavigator:
     async def explore(self, repository_url: str) -> RepositoryTree:
         tree = RepositoryTree()
         await self._walk(repository_url, "", 0, tree)
+        tree.files.sort(key=self._priority)
         return tree
 
     async def _safe_goto(self, url: str) -> bool:
@@ -67,7 +69,7 @@ class GitHubNavigator:
         current_path: str,
         depth: int,
         tree: RepositoryTree,
-    ):
+    ) -> None:
         if depth > settings.max_depth:
             return
 
@@ -87,7 +89,7 @@ class GitHubNavigator:
             'a.Link--primary[href*="/blob/"]'
         )
 
-        entries = []
+        entries: list[tuple[str, str]] = []
 
         for index in range(await rows.count()):
             link = rows.nth(index)
@@ -126,3 +128,32 @@ class GitHubNavigator:
                 }:
                     if path not in tree.files:
                         tree.files.append(path)
+
+    def _priority(self, path: str) -> tuple[int, str]:
+        lower = path.lower()
+
+        if lower.startswith("src/"):
+            return (0, path)
+
+        if any(
+            name in lower
+            for name in (
+                "main.py",
+                "app.py",
+                "cli.py",
+                "config.py",
+                "__init__.py",
+            )
+        ):
+            return (1, path)
+
+        if lower.startswith("tests/"):
+            return (3, path)
+
+        if lower.startswith("examples/"):
+            return (4, path)
+
+        if lower.startswith("docs/"):
+            return (5, path)
+
+        return (2, path)
