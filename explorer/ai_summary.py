@@ -6,7 +6,89 @@ class AISummaryGenerator:
         architecture: dict,
         analysis: dict[str, dict],
         files: list[str],
+        html_analysis: dict[str, dict],
     ) -> str:
+        technologies = ", ".join(
+            architecture.get("technologies", [])
+        ) or "Unknown"
+
+        patterns = "\n".join(
+            f"- {item}"
+            for item in architecture.get("architecture_patterns", [])
+        ) or "- No clear pattern detected"
+
+        if html_analysis:
+            home = (
+                html_analysis.get("index.html")
+                or html_analysis.get("index.updated.html")
+                or next(iter(html_analysis.values()))
+            )
+
+            purpose = home.get("summary") or home.get("heading") or overview.get("purpose", "")
+            page_lines = "\n".join(
+                f"- `{path}` — {data.get('title') or data.get('heading') or 'HTML page'}"
+                for path, data in html_analysis.items()
+            )
+
+            reading_order = "\n".join(
+                f"{index}. `{path}`"
+                for index, path in enumerate(
+                    [
+                        path
+                        for path in (
+                            "README.md",
+                            "index.html",
+                            "Styles.css",
+                            "services.html",
+                            "gallery.html",
+                            "contact.html",
+                        )
+                        if path in files
+                    ],
+                    start=1,
+                )
+            )
+
+            return f"""# AI Repository Summary
+
+## Repository
+
+{repository_url}
+
+## What is this project?
+
+{purpose}
+
+## Main technologies
+
+{technologies}
+
+## Architecture
+
+{patterns}
+
+## Main pages
+
+{page_lines}
+
+## Recommended learning order
+
+{reading_order or "No reading order detected."}
+
+## Complexity
+
+{architecture.get("complexity_score", "Unknown")}/10
+
+## Beginner friendliness
+
+High
+
+## Explanation
+
+This repository is a static website. The HTML pages define the content and navigation,
+the CSS files control the design, and GitHub Actions is used for automated deployment.
+"""
+
         important_files = [
             path for path in files
             if path.endswith((
@@ -20,25 +102,6 @@ class AISummaryGenerator:
                 "__init__.py",
             ))
         ][:10]
-
-        classes = sum(
-            len(item.get("classes", []))
-            for item in analysis.values()
-        )
-
-        functions = sum(
-            len(item.get("functions", []))
-            for item in analysis.values()
-        )
-
-        technologies = ", ".join(
-            architecture.get("technologies", [])
-        ) or "Unknown"
-
-        patterns = "\n".join(
-            f"- {item}"
-            for item in architecture.get("architecture_patterns", [])
-        ) or "- No clear pattern detected"
 
         reading_order = "\n".join(
             f"{index}. `{path}`"
@@ -63,16 +126,6 @@ class AISummaryGenerator:
 
 {patterns}
 
-## Codebase size
-
-- Python files analyzed: {len(analysis)}
-- Classes found: {classes}
-- Functions found: {functions}
-
-## Important files
-
-{reading_order}
-
 ## Recommended learning order
 
 {reading_order}
@@ -80,15 +133,4 @@ class AISummaryGenerator:
 ## Complexity
 
 {architecture.get("complexity_score", "Unknown")}/10
-
-## Beginner friendliness
-
-{"Low" if architecture.get("complexity_score", 0) >= 8 else "Medium"}
-
-## Explanation
-
-This repository appears to be organized around its core source package.
-The most important files should be read before examples and tests.
-The architecture detector found the main technologies and structural patterns,
-while the AST analyzer identified classes, functions, and imports.
 """

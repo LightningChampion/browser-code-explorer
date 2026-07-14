@@ -24,7 +24,7 @@ IGNORED = {
 SOURCE_EXTENSIONS = {
     ".py", ".js", ".jsx", ".ts", ".tsx",
     ".go", ".rs", ".java", ".kt", ".md",
-    ".toml", ".json", ".yaml", ".yml",
+    ".toml", ".json", ".yaml", ".yml", ".html", ".css",
 }
 
 
