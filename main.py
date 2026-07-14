@@ -5,6 +5,7 @@ from pathlib import Path
 
 from explorer.analyzer import PythonAnalyzer
 from explorer.architecture import ArchitectureDetector
+from explorer.ai_summary import AISummaryGenerator
 from explorer.browser import BrowserController
 from explorer.dependency import DependencyGraph
 from explorer.github import normalize_repository
@@ -37,6 +38,15 @@ async def run(repository_input: str):
         detector = ArchitectureDetector()
         architecture = detector.detect(tree.files, analysis)
 
+        summary_generator = AISummaryGenerator()
+        ai_summary = summary_generator.generate(
+            repository_url,
+            overview,
+            architecture,
+            analysis,
+            tree.files,
+        )
+
         dependency_builder = DependencyGraph()
         dependencies = dependency_builder.build(analysis)
         mermaid = dependency_builder.to_mermaid(dependencies)
@@ -44,6 +54,11 @@ async def run(repository_input: str):
         save_report(repository_url, tree, analysis)
 
         Path("reports").mkdir(exist_ok=True)
+
+        Path("reports/ai-summary.md").write_text(
+            ai_summary,
+            encoding="utf-8",
+        )
 
         Path("reports/repository-overview.md").write_text(
             "# Repository Overview\n\n"
@@ -93,6 +108,7 @@ async def run(repository_input: str):
         print(f"Python files analyzed: {len(analysis)}")
         print(f"Technologies detected: {', '.join(architecture['technologies'])}")
         print("Overview: reports/repository-overview.md")
+        print("AI summary: reports/ai-summary.md")
 
     finally:
         await browser.stop()
