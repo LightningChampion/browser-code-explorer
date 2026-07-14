@@ -1,4 +1,4 @@
-import asyncio
+from urllib.parse import urljoin
 
 from playwright.async_api import Page, Error as PlaywrightError
 
@@ -28,51 +28,34 @@ class CodeReader:
 
     async def read_file(self, repository_url: str, path: str) -> str:
         for branch in ("main", "master"):
-            url = f"{repository_url}/blob/{branch}/{path}"
+            file_url = f"{repository_url}/blob/{branch}/{path}"
 
             try:
-                await self.page.goto(
-                    url,
-                    wait_until="domcontentloaded",
-                    timeout=30000,
-                )
+                await self.page.goto(file_url, wait_until="domcontentloaded")
             except PlaywrightError:
                 continue
 
-            if "404" in await self.page.title():
-                continue
-
             raw_link = self.page.locator(
-                'a[data-testid="raw-button"], '
-                'a[href*="/raw/"], '
-                'a:has-text("Raw")'
+                'a[data-testid="raw-button"], a[href*="/raw/"]'
             ).first
 
-            if await raw_link.count():
-                try:
-                    await raw_link.click()
-                    await self.page.wait_for_load_state("domcontentloaded")
+            if not await raw_link.count():
+                continue
 
-                    content = await self.page.locator("body").inner_text()
-                    if content.strip():
-                        return content.strip()
-                except PlaywrightError:
-                    pass
+            raw_href = await raw_link.get_attribute("href")
 
-            selectors = [
-                'textarea[aria-label="file content"]',
-                'div[data-testid="read-only-cursor-text-area"]',
-                'table.highlight',
-                '.react-code-lines',
-            ]
+            if not raw_href:
+                continue
 
-            for selector in selectors:
-                locator = self.page.locator(selector).first
-                if await locator.count():
-                    content = await locator.inner_text()
-                    if content.strip():
-                        return content.strip()
+            raw_url = urljoin("https://github.com", raw_href)
 
-            await asyncio.sleep(1)
+            try:
+                await self.page.goto(raw_url, wait_until="domcontentloaded")
+                content = await self.page.locator("body").inner_text()
+            except PlaywrightError:
+                continue
+
+            if content.strip():
+                return content.strip()
 
         return ""
