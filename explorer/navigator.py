@@ -1,7 +1,8 @@
+import asyncio
 from dataclasses import dataclass, field
 from urllib.parse import urljoin
 
-from playwright.async_api import Page
+from playwright.async_api import Page, Error as PlaywrightError
 
 from explorer.config import settings
 
@@ -39,9 +40,26 @@ class GitHubNavigator:
 
     async def explore(self, repository_url: str) -> RepositoryTree:
         tree = RepositoryTree()
-        await self.page.goto(repository_url, wait_until="domcontentloaded")
         await self._walk(repository_url, "", 0, tree)
         return tree
+
+    async def _safe_goto(self, url: str) -> bool:
+        for attempt in range(3):
+            try:
+                await self.page.goto(
+                    url,
+                    wait_until="domcontentloaded",
+                    timeout=settings.timeout_ms,
+                )
+                return True
+            except PlaywrightError as exc:
+                print(f"Retry {attempt + 1}/3: {url}")
+                if attempt == 2:
+                    print(f"Skipped: {url} ({exc})")
+                    return False
+                await asyncio.sleep(2)
+
+        return False
 
     async def _walk(
         self,
@@ -53,11 +71,16 @@ class GitHubNavigator:
         if depth > settings.max_depth:
             return
 
+        if len(tree.files) >= settings.max_files:
+            return
+
         if url in self.visited_urls:
             return
 
         self.visited_urls.add(url)
-        await self.page.goto(url, wait_until="domcontentloaded")
+
+        if not await self._safe_goto(url):
+            return
 
         rows = self.page.locator(
             'a.Link--primary[href*="/tree/"], '
@@ -68,15 +91,20 @@ class GitHubNavigator:
 
         for index in range(await rows.count()):
             link = rows.nth(index)
-            name = (await link.inner_text()).strip()
-            href = await link.get_attribute("href")
 
-            if not name or not href:
+            try:
+                name = (await link.inner_text()).strip()
+                href = await link.get_attribute("href")
+            except PlaywrightError:
                 continue
 
-            entries.append((name, urljoin("https://github.com", href)))
+            if name and href:
+                entries.append((name, urljoin("https://github.com", href)))
 
         for name, entry_url in entries:
+            if len(tree.files) >= settings.max_files:
+                return
+
             path = f"{current_path}/{name}".strip("/")
 
             if "/tree/" in entry_url:
@@ -98,6 +126,3 @@ class GitHubNavigator:
                 }:
                     if path not in tree.files:
                         tree.files.append(path)
-
-                if len(tree.files) >= settings.max_files:
-                    return

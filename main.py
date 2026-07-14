@@ -1,9 +1,12 @@
 import argparse
 import asyncio
+import json
+from pathlib import Path
 
 from explorer.browser import BrowserController
 from explorer.github import normalize_repository
 from explorer.navigator import GitHubNavigator
+from explorer.reader import CodeReader
 from explorer.report import save_report
 
 
@@ -13,16 +16,28 @@ async def run(repository_input: str):
 
     try:
         page = await browser.start()
-        navigator = GitHubNavigator(page)
 
         print(f"Opening: {repository_url}")
+
+        navigator = GitHubNavigator(page)
         tree = await navigator.explore(repository_url)
+
+        reader = CodeReader(page, max_files=15)
+        contents = await reader.read_files(repository_url, tree.files)
 
         save_report(repository_url, tree)
 
+        Path("reports").mkdir(exist_ok=True)
+        Path("reports/file-contents.json").write_text(
+            json.dumps(contents, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
         print(f"Folders found: {len(tree.folders)}")
         print(f"Important files found: {len(tree.files)}")
-        print("Report: reports/repository-tree.md")
+        print(f"Files read: {len(contents)}")
+        print("Report: reports/file-contents.json")
+
     finally:
         await browser.stop()
 
