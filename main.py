@@ -28,7 +28,7 @@ async def run(repository_input: str):
         analyzer = PythonAnalyzer()
         analysis = analyzer.analyze_files(contents)
 
-        save_report(repository_url, tree)
+        save_report(repository_url, tree, analysis)
 
         Path("reports").mkdir(exist_ok=True)
 
