@@ -6,19 +6,20 @@ class DependencyGraph:
         self,
         analysis: dict[str, dict],
     ) -> dict[str, list[str]]:
-        module_map = {}
-
-        for path in analysis:
-            module = self._path_to_module(path)
-            module_map[module] = path
+        module_map = {
+            self._path_to_module(path): path
+            for path in analysis
+        }
 
         graph: dict[str, list[str]] = {}
 
         for path, data in analysis.items():
+            source_module = self._path_to_module(path)
             dependencies = []
 
             for imported in data.get("imports", []):
-                matched = self._match_import(imported, module_map)
+                resolved = self._resolve_import(source_module, imported)
+                matched = self._match_import(resolved, module_map)
 
                 if matched and matched != path:
                     dependencies.append(matched)
@@ -54,24 +55,47 @@ class DependencyGraph:
 
         return clean.replace("/", ".")
 
+    def _resolve_import(self, source_module: str, imported: str) -> str:
+        if not imported.startswith("."):
+            return imported
+
+        dots = len(imported) - len(imported.lstrip("."))
+        remainder = imported.lstrip(".")
+
+        source_parts = source_module.split(".")
+
+        if not source_module.endswith("__init__"):
+            source_parts = source_parts[:-1]
+
+        keep = max(0, len(source_parts) - dots + 1)
+        base = source_parts[:keep]
+
+        if remainder:
+            base.extend(remainder.split("."))
+
+        return ".".join(base)
+
     def _match_import(
         self,
         imported: str,
         module_map: dict[str, str],
     ) -> str | None:
-        imported = imported.lstrip(".")
+        if imported in module_map:
+            return module_map[imported]
 
-        for module, path in module_map.items():
-            if imported == module or imported.startswith(module + "."):
-                return path
+        candidates = [
+            (module, path)
+            for module, path in module_map.items()
+            if imported.startswith(module + ".")
+        ]
 
-        return None
+        if not candidates:
+            return None
+
+        return max(candidates, key=lambda item: len(item[0]))[1]
 
     def _node_id(self, path: str) -> str:
-        return (
-            "node_"
-            + "".join(
-                character if character.isalnum() else "_"
-                for character in path
-            )
+        return "node_" + "".join(
+            character if character.isalnum() else "_"
+            for character in path
         )
