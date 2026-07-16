@@ -10,6 +10,7 @@ from explorer.analyzer import PythonAnalyzer
 from explorer.architecture import ArchitectureDetector
 from explorer.browser import BrowserController
 from explorer.dependency import DependencyGraph
+from explorer.final_report import FinalReport
 from explorer.github import normalize_repository
 from explorer.html_analyzer import HtmlAnalyzer
 from explorer.navigator import GitHubNavigator
@@ -134,6 +135,12 @@ async def run(repository_input: str):
             encoding="utf-8",
         )
 
+        final_report = FinalReport().build()
+        Path("reports/final-report.md").write_text(
+            final_report,
+            encoding="utf-8",
+        )
+
         print(f"Folders found: {len(tree.folders)}")
         print(f"Important files found: {len(tree.files)}")
         print(f"Files read: {len(contents)}")
@@ -145,6 +152,7 @@ async def run(repository_input: str):
         )
         print("Overview: reports/repository-overview.md")
         print("AI summary: reports/ai-summary.md")
+        print("Final report: reports/final-report.md")
 
     finally:
         await browser.stop()
