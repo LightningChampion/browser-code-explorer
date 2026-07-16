@@ -19,7 +19,7 @@ from explorer.reader import CodeReader
 from explorer.report import save_report
 
 
-async def run(repository_input: str):
+async def run(repository_input: str, max_files: int) -> None:
     repository_url = normalize_repository(repository_input)
     browser = BrowserController()
 
@@ -36,7 +36,10 @@ async def run(repository_input: str):
                 "Repository not found, inaccessible, private, or empty."
             )
 
-        contents = await CodeReader(page, max_files=15).read_files(
+        contents = await CodeReader(
+            page,
+            max_files=max_files,
+        ).read_files(
             repository_url,
             tree.files,
         )
@@ -50,10 +53,14 @@ async def run(repository_input: str):
             if path.endswith(".html")
         }
 
-        architecture = ArchitectureDetector().detect(tree.files, analysis)
+        architecture = ArchitectureDetector().detect(
+            tree.files,
+            analysis,
+        )
 
-        dependencies = DependencyGraph().build(analysis)
-        mermaid = DependencyGraph().to_mermaid(dependencies)
+        dependency_builder = DependencyGraph()
+        dependencies = dependency_builder.build(analysis)
+        mermaid = dependency_builder.to_mermaid(dependencies)
 
         ai_summary = AISummaryGenerator().generate(
             repository_url,
@@ -64,79 +71,115 @@ async def run(repository_input: str):
             html_analysis,
         )
 
+        reports_directory = Path("reports")
+        reports_directory.mkdir(exist_ok=True)
+
         save_report(repository_url, tree, analysis)
-        Path("reports").mkdir(exist_ok=True)
 
         pages = "\n".join(
-            f"- `{path}` — {data.get('title') or data.get('heading') or 'HTML page'}"
+            (
+                f"- `{path}` — "
+                f"{data.get('title') or data.get('heading') or 'HTML page'}"
+            )
             for path, data in html_analysis.items()
         )
 
         purpose = overview["purpose"]
+
         if html_analysis:
             home = (
                 html_analysis.get("index.html")
                 or html_analysis.get("index.updated.html")
                 or next(iter(html_analysis.values()))
             )
-            purpose = home.get("summary") or home.get("heading") or purpose
+            purpose = (
+                home.get("summary")
+                or home.get("heading")
+                or purpose
+            )
+
+        technologies = "\n".join(
+            f"- {item}"
+            for item in architecture["technologies"]
+        )
+
+        architecture_patterns = "\n".join(
+            f"- {item}"
+            for item in architecture["architecture_patterns"]
+        )
 
         overview_report = (
             "# Repository Overview\n\n"
             f"## Repository\n{repository_url}\n\n"
             f"## Purpose\n{purpose}\n\n"
             f"## Description\n{overview['description']}\n\n"
-            f"## Technologies\n"
-            + "\n".join(
-                f"- {item}" for item in architecture["technologies"]
-            )
-            + "\n\n## Architecture\n"
-            + "\n".join(
-                f"- {item}"
-                for item in architecture["architecture_patterns"]
-            )
+            f"## Technologies\n{technologies}\n\n"
+            f"## Architecture\n{architecture_patterns}"
         )
 
         if pages:
             overview_report += f"\n\n## Website pages\n{pages}"
 
         overview_report += (
-            f"\n\n## Complexity\n"
+            "\n\n## Complexity\n"
             f"{architecture['complexity_score']}/10\n"
         )
 
-        Path("reports/repository-overview.md").write_text(
+        (reports_directory / "repository-overview.md").write_text(
             overview_report,
             encoding="utf-8",
         )
-        Path("reports/ai-summary.md").write_text(ai_summary, encoding="utf-8")
-        Path("reports/file-contents.json").write_text(
-            json.dumps(contents, indent=2, ensure_ascii=False),
+        (reports_directory / "ai-summary.md").write_text(
+            ai_summary,
             encoding="utf-8",
         )
-        Path("reports/code-analysis.json").write_text(
-            json.dumps(analysis, indent=2, ensure_ascii=False),
+        (reports_directory / "file-contents.json").write_text(
+            json.dumps(
+                contents,
+                indent=2,
+                ensure_ascii=False,
+            ),
             encoding="utf-8",
         )
-        Path("reports/html-analysis.json").write_text(
-            json.dumps(html_analysis, indent=2, ensure_ascii=False),
+        (reports_directory / "code-analysis.json").write_text(
+            json.dumps(
+                analysis,
+                indent=2,
+                ensure_ascii=False,
+            ),
             encoding="utf-8",
         )
-        Path("reports/architecture.json").write_text(
-            json.dumps(architecture, indent=2, ensure_ascii=False),
+        (reports_directory / "html-analysis.json").write_text(
+            json.dumps(
+                html_analysis,
+                indent=2,
+                ensure_ascii=False,
+            ),
             encoding="utf-8",
         )
-        Path("reports/dependencies.json").write_text(
-            json.dumps(dependencies, indent=2, ensure_ascii=False),
+        (reports_directory / "architecture.json").write_text(
+            json.dumps(
+                architecture,
+                indent=2,
+                ensure_ascii=False,
+            ),
             encoding="utf-8",
         )
-        Path("reports/dependency-graph.md").write_text(
+        (reports_directory / "dependencies.json").write_text(
+            json.dumps(
+                dependencies,
+                indent=2,
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        (reports_directory / "dependency-graph.md").write_text(
             f"# Dependency Graph\n\n```mermaid\n{mermaid}\n```\n",
             encoding="utf-8",
         )
 
         final_report = FinalReport().build()
-        Path("reports/final-report.md").write_text(
+        (reports_directory / "final-report.md").write_text(
             final_report,
             encoding="utf-8",
         )
@@ -158,24 +201,55 @@ async def run(repository_input: str):
         await browser.stop()
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("repository")
+def positive_integer(value: str) -> int:
+    number = int(value)
+
+    if number < 1:
+        raise argparse.ArgumentTypeError(
+            "must be a positive integer"
+        )
+
+    return number
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Analyze a public GitHub repository and generate reports."
+        )
+    )
+    parser.add_argument(
+        "repository",
+        help="GitHub owner/repository or complete repository URL.",
+    )
+    parser.add_argument(
+        "--max-files",
+        type=positive_integer,
+        default=15,
+        help="Maximum number of repository files to read. Default: 15.",
+    )
+
     args = parser.parse_args()
+
     try:
-        asyncio.run(run(args.repository))
+        asyncio.run(
+            run(
+                repository_input=args.repository,
+                max_files=args.max_files,
+            )
+        )
     except ValueError as exc:
         print(f"Invalid repository: {exc}")
-        raise SystemExit(2)
+        raise SystemExit(2) from exc
     except PlaywrightError as exc:
         print(f"Browser or network error: {exc}")
-        raise SystemExit(3)
-    except KeyboardInterrupt:
+        raise SystemExit(3) from exc
+    except KeyboardInterrupt as exc:
         print("\nCancelled by user.")
-        raise SystemExit(130)
+        raise SystemExit(130) from exc
     except Exception as exc:
         print(f"Unexpected error: {exc}")
-        raise SystemExit(1)
+        raise SystemExit(1) from exc
 
 
 if __name__ == "__main__":
