@@ -19,9 +19,13 @@ from explorer.reader import CodeReader
 from explorer.report import save_report
 
 
-async def run(repository_input: str, max_files: int) -> None:
+async def run(
+    repository_input: str,
+    max_files: int,
+    headless: bool,
+) -> None:
     repository_url = normalize_repository(repository_input)
-    browser = BrowserController()
+    browser = BrowserController(headless=headless)
 
     try:
         page = await browser.start()
@@ -228,6 +232,11 @@ def main() -> None:
         default=15,
         help="Maximum number of repository files to read. Default: 15.",
     )
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        help="Run the browser without showing a window.",
+    )
 
     args = parser.parse_args()
 
@@ -236,6 +245,7 @@ def main() -> None:
             run(
                 repository_input=args.repository,
                 max_files=args.max_files,
+                headless=args.headless,
             )
         )
     except ValueError as exc:
