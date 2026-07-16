@@ -29,6 +29,12 @@ async def run(repository_input: str):
         overview = await RepositoryOverview(page).collect(repository_url)
 
         tree = await GitHubNavigator(page).explore(repository_url)
+
+        if not tree.folders and not tree.files:
+            raise ValueError(
+                "Repository not found, inaccessible, private, or empty."
+            )
+
         contents = await CodeReader(page, max_files=15).read_files(
             repository_url,
             tree.files,
