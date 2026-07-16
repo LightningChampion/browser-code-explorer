@@ -3,6 +3,8 @@ import asyncio
 import json
 from pathlib import Path
 
+from playwright.async_api import Error as PlaywrightError
+
 from explorer.ai_summary import AISummaryGenerator
 from explorer.analyzer import PythonAnalyzer
 from explorer.architecture import ArchitectureDetector
@@ -146,7 +148,20 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("repository")
     args = parser.parse_args()
-    asyncio.run(run(args.repository))
+    try:
+        asyncio.run(run(args.repository))
+    except ValueError as exc:
+        print(f"Invalid repository: {exc}")
+        raise SystemExit(2)
+    except PlaywrightError as exc:
+        print(f"Browser or network error: {exc}")
+        raise SystemExit(3)
+    except KeyboardInterrupt:
+        print("\nCancelled by user.")
+        raise SystemExit(130)
+    except Exception as exc:
+        print(f"Unexpected error: {exc}")
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
