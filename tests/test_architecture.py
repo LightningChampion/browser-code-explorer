@@ -27,3 +27,18 @@ def test_detects_static_website():
     assert "HTML" in result["technologies"]
     assert "CSS" in result["technologies"]
     assert "GitHub Actions" in result["technologies"]
+
+
+def test_project_structure_does_not_automatically_mean_maximum_complexity():
+    files = [
+        "src/flask/app.py",
+        "src/flask/blueprints.py",
+        "tests/test_app.py",
+        "docs/index.rst",
+        "examples/tutorial/app.py",
+        "Dockerfile",
+    ] + [f"src/flask/module_{index}.py" for index in range(44)]
+
+    result = ArchitectureDetector().detect(files, {})
+
+    assert result["complexity_score"] < 10

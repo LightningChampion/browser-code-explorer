@@ -52,7 +52,7 @@ class ArchitectureDetector:
 
         complexity = min(
             10,
-            1 + len(technologies) + len(patterns) // 2 + len(files) // 25,
+            1 + len(technologies) // 2 + len(patterns) // 3 + len(files) // 50,
         )
 
         return {
