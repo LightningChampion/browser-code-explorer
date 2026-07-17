@@ -11,6 +11,11 @@ class ArchitectureDetector:
 
         checks = {
             "Python": any(path.endswith(".py") for path in files),
+            "Rust": any(path.endswith(".rs") for path in files),
+            "Cargo": any(
+                path.lower().endswith(("cargo.toml", "cargo.lock"))
+                for path in files
+            ),
             "Flask": "flask" in imports or "src/flask" in text,
             "Django": "django" in imports,
             "FastAPI": "fastapi" in imports,

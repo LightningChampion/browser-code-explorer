@@ -42,3 +42,17 @@ def test_project_structure_does_not_automatically_mean_maximum_complexity():
     result = ArchitectureDetector().detect(files, {})
 
     assert result["complexity_score"] < 10
+
+
+def test_detects_rust_project():
+    files = [
+        "Cargo.toml",
+        "src/main.rs",
+        "src/lib.rs",
+        "tests/integration.rs",
+    ]
+
+    result = ArchitectureDetector().detect(files, {})
+
+    assert "Rust" in result["technologies"]
+    assert "Cargo" in result["technologies"]
