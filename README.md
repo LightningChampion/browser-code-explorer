@@ -11,6 +11,15 @@ pip install -e .
 python -m playwright install chromium
 ```
 
+
+## OpenAI API key on macOS
+
+The project reads the OpenAI API key securely from macOS Keychain using the service name browser-code-explorer.
+
+Run this to verify the connection:
+
+    python check_openai_key.py
+
 ## Usage
 
 ```bash
