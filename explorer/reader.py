@@ -3,6 +3,49 @@ from urllib.parse import urljoin
 from playwright.async_api import Page, Error as PlaywrightError
 
 
+def select_representative_files(
+    paths: list[str],
+    max_files: int,
+) -> list[str]:
+    priority_groups = [
+        ("README.md", "README.rst", "README.txt"),
+        (
+            "pyproject.toml",
+            "requirements.txt",
+            "package.json",
+            "Cargo.toml",
+            "go.mod",
+            "pom.xml",
+        ),
+        (".github/workflows/",),
+        ("tests/", "test/"),
+        ("docs/",),
+    ]
+
+    selected: list[str] = []
+
+    for group in priority_groups:
+        for path in paths:
+            if path in selected:
+                continue
+
+            if any(
+                path == pattern or path.startswith(pattern)
+                for pattern in group
+            ):
+                selected.append(path)
+                break
+
+    for path in paths:
+        if len(selected) >= max_files:
+            break
+
+        if path not in selected:
+            selected.append(path)
+
+    return selected[:max_files]
+
+
 class CodeReader:
     def __init__(self, page: Page, max_files: int = 15):
         self.page = page
@@ -14,8 +57,12 @@ class CodeReader:
         paths: list[str],
     ) -> dict[str, str]:
         contents = {}
+        selected_paths = select_representative_files(
+            paths,
+            self.max_files,
+        )
 
-        for path in paths[:self.max_files]:
+        for path in selected_paths:
             content = await self.read_file(repository_url, path)
 
             if content:

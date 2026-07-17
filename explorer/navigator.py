@@ -73,9 +73,6 @@ class GitHubNavigator:
         if depth > settings.max_depth:
             return
 
-        if len(tree.files) >= settings.max_files:
-            return
-
         if url in self.visited_urls:
             return
 
@@ -104,9 +101,6 @@ class GitHubNavigator:
                 entries.append((name, urljoin("https://github.com", href)))
 
         for name, entry_url in entries:
-            if len(tree.files) >= settings.max_files:
-                return
-
             path = f"{current_path}/{name}".strip("/")
 
             if "/tree/" in entry_url:
