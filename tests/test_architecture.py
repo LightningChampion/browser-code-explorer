@@ -56,3 +56,16 @@ def test_detects_rust_project():
 
     assert "Rust" in result["technologies"]
     assert "Cargo" in result["technologies"]
+
+
+def test_rust_project_tests_folder_does_not_imply_pytest():
+    files = [
+        "Cargo.toml",
+        "src/main.rs",
+        "src/lib.rs",
+        "tests/integration.rs",
+    ]
+
+    result = ArchitectureDetector().detect(files, {})
+
+    assert "Pytest" not in result["technologies"]

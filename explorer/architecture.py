@@ -19,7 +19,14 @@ class ArchitectureDetector:
             "Flask": "flask" in imports or "src/flask" in text,
             "Django": "django" in imports,
             "FastAPI": "fastapi" in imports,
-            "Pytest": "pytest" in imports or "tests/" in text,
+            "Pytest": (
+                "pytest" in imports
+                or any(
+                    path.lower().startswith("tests/")
+                    and path.endswith(".py")
+                    for path in files
+                )
+            ),
             "Docker": "dockerfile" in text or ".devcontainer" in text,
             "HTML": any(path.endswith(".html") for path in files),
             "CSS": any(path.endswith(".css") for path in files),
