@@ -1,6 +1,16 @@
-from urllib.parse import urljoin
+﻿from urllib.parse import urljoin
 
 from playwright.async_api import Page, Error as PlaywrightError
+
+
+def _matches_pattern(path: str, pattern: str) -> bool:
+    if pattern.endswith("/"):
+        return pattern in path
+
+    if pattern.startswith("."):
+        return path.endswith(pattern)
+
+    return path == pattern
 
 
 def select_representative_files(
@@ -17,6 +27,8 @@ def select_representative_files(
             "go.mod",
             "pom.xml",
         ),
+        ("src/", "lib/", "app/", "cmd/", "internal/", "pkg/"),
+        (".rs", ".py", ".js", ".jsx", ".ts", ".tsx", ".go", ".java", ".kt"),
         (".github/workflows/",),
         ("tests/", "test/"),
         ("docs/",),
@@ -29,10 +41,7 @@ def select_representative_files(
             if path in selected:
                 continue
 
-            if any(
-                path == pattern or path.startswith(pattern)
-                for pattern in group
-            ):
+            if any(_matches_pattern(path, pattern) for pattern in group):
                 selected.append(path)
                 break
 

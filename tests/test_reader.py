@@ -22,3 +22,20 @@ def test_selects_representative_files_across_categories():
     assert ".github/workflows/ci.yml" in selected
     assert "tests/test_harness.rs" in selected
     assert len(selected) == 6
+
+
+def test_selects_a_source_file_for_rust_projects():
+    paths = [
+        "README.md",
+        "Cargo.toml",
+        ".github/workflows/ci.yml",
+        "tests/test_harness.rs",
+        "docs/architecture.md",
+        "src/main.rs",
+        "src/lib.rs",
+    ]
+
+    selected = select_representative_files(paths, max_files=4)
+
+    assert any(path.endswith(".rs") for path in selected)
+

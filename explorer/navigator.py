@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 from dataclasses import dataclass, field
 from urllib.parse import urljoin
 
@@ -126,12 +126,25 @@ class GitHubNavigator:
     def _priority(self, path: str) -> tuple[int, str]:
         lower = path.lower()
 
-        if lower.startswith("src/"):
+        if lower.startswith("go.mod") or lower.startswith("go.sum"):
             return (0, path)
+
+        if lower.startswith("cmd/"):
+            return (1, path)
+
+        if lower.startswith("internal/"):
+            return (2, path)
+
+        if lower.startswith("pkg/"):
+            return (3, path)
+
+        if lower.startswith("src/"):
+            return (4, path)
 
         if any(
             name in lower
             for name in (
+                "main.go",
                 "main.py",
                 "app.py",
                 "cli.py",
@@ -139,15 +152,15 @@ class GitHubNavigator:
                 "__init__.py",
             )
         ):
-            return (1, path)
-
-        if lower.startswith("tests/"):
-            return (3, path)
-
-        if lower.startswith("examples/"):
-            return (4, path)
-
-        if lower.startswith("docs/"):
             return (5, path)
 
-        return (2, path)
+        if lower.startswith("tests/"):
+            return (7, path)
+
+        if lower.startswith("examples/"):
+            return (8, path)
+
+        if lower.startswith("docs/"):
+            return (9, path)
+
+        return (6, path)
